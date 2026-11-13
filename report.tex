@@ -1,0 +1,289 @@
+\documentclass[11pt,letterpaper]{article}
+
+% ---------- packages ----------
+\usepackage[margin=1in]{geometry}
+\usepackage{authblk}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{setspace}
+
+% ---------- colors (mirrors the deep-navy / teal palette used in the EDA deck) ----------
+\definecolor{navy}{HTML}{21295C}
+\definecolor{deepblue}{HTML}{065A82}
+\definecolor{teal}{HTML}{1C7293}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=deepblue,
+  citecolor=deepblue,
+  urlcolor=deepblue,
+  pdftitle={Social Determinants of Health, Residential Segregation, and New HIV Diagnoses: A Reproduction and Extension},
+  pdfauthor={Sade M. Graves}
+}
+
+% ---------- section styling (journal-style: small caps, colored rule) ----------
+\titleformat{\section}
+  {\large\bfseries\color{navy}}
+  {\thesection}{0.6em}{}
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{deepblue}}
+  {\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.4em}{0.8em}
+\titlespacing*{\subsection}{0pt}{1.0em}{0.5em}
+
+% ---------- running header/footer, journal-style ----------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.6pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyhead[L]{\small\itshape MSBD 503: Introduction to Epidemiology --- Course Project Report}
+\fancyhead[R]{\small\itshape Graves}
+\fancyfoot[C]{\small\thepage}
+
+\renewcommand{\Authfont}{\bfseries}
+\renewcommand{\Affilfont}{\itshape\small}
+\setlength{\affilsep}{0.5em}
+
+\title{\color{navy}\textbf{Social Determinants of Health, Residential Segregation, and New HIV Diagnoses in the United States, 2013--2023: A Reproduction and Extension with Temporal, Forecasting, and Spatial-Clustering Analysis}}
+\author[1]{Sade M. Graves, M.S.}
+\affil[1]{School of Applied Computational Sciences, Biomedical Data Science Program, Meharry Medical College}
+\date{MSBD 503: Introduction to Epidemiology --- Project Report \\ Instructor: Dr. Lubna J. Pinky, PhD \\ \today}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\noindent\textcolor{navy}{\rule{\linewidth}{1.2pt}}
+
+\begin{abstract}
+\noindent New HIV diagnoses remain unevenly distributed across the United States. They are concentrated among Black populations, low-income communities, and the South, despite the national goals of the Ending the HIV Epidemic (EHE) initiative. Garrett et al. (2026) recently used publicly available county-level data from AIDSVu and the American Community Survey (ACS), 2013 to 2023, and showed that social determinants of health (SDOH) and residential segregation, used as a proxy for systemic racism, are associated with new HIV diagnosis rates across every major U.S. region. The association between a county's Black population share and residential segregation stood out as particularly persistent. This project reproduces that regional, longitudinal association analysis on the same public data sources, then extends it in three directions the original study's own discussion explicitly calls for but does not perform. These are a formal time-series decomposition of the 2013 to 2023 trend, including the COVID-19-era disruption and rebound; short-horizon forecasting of county- and regional-level new-diagnosis rates; and unsupervised spatial clustering (K-means) of counties into SDOH/segregation typologies, mapped geographically at a finer resolution than the original study's four-region design. This project is personally motivated as well. I grew up in a semi-rural community where the nearest hospital was at least eighteen minutes away, across a bridge, and that early experience shaped my interest in how geography affects access to care. It is the same question the spatial-clustering extension is built to answer at the county level.
+\end{abstract}
+
+\vspace{0.6em}
+\noindent\textcolor{navy}{\rule{\linewidth}{0.6pt}}
+\vspace{0.6em}
+
+% ============================================================
+\section{Project Topic}
+% ============================================================
+
+This project proposes an epidemiological data-analytics study of new HIV diagnoses at the U.S. county level, 2013 to 2023, built directly on a peer-reviewed foundation. That foundation is Garrett, Li, Xia, Li, and Qiao's 2026 \textit{AIDS and Behavior} paper, \textit{County-Level New HIV Diagnoses, Social Determinants of Health, and Residential Segregation by U.S. Region 2013 to 2023: A Longitudinal Analysis} \cite{garrett2026}, which merged publicly available county-level surveillance data from AIDSVu with American Community Survey (ACS) social determinants of health data. Using a region-stratified Generalized Estimating Equation (GEE) model, the authors showed that SDOH and residential segregation are associated with new HIV diagnosis rates across all four major U.S. regions.
+
+This project has two components. The first reproduces the original study's data pipeline and core analytic logic, merging the same public AIDSVu and ACS sources on Federal Information Processing System (FIPS) codes into a single 2013 to 2023 county-year panel and replicating its region-stratified association modeling approach. The second is an extension. It adds three analyses the original paper does not perform but that its discussion section explicitly motivates, a formal longitudinal time-series decomposition in place of a single descriptive trend figure, short-horizon forecasting of new-diagnosis rates, and county-level K-means spatial clustering mapped geographically. Together, these resolve the original study's four-region granularity down to the level of individual counties and clusters of counties.
+
+This topic has the depth and scope to grow into a conference-paper-level study. Its foundation was itself accepted for publication in a peer-reviewed journal in 2026, and the three proposed extensions, formal temporal modeling of a known structural break in the COVID-19 disruption, predictive forecasting, and unsupervised spatial typology discovery, are each independently publishable analytic contributions in their own right. Together they turn a purely inferential association study into a reproducible pipeline with a forward-looking, geographically resolved public-health application.
+
+% ============================================================
+\section{Motivation}
+% ============================================================
+
+New HIV diagnoses are a key indicator of the HIV epidemic, and a direct measure of progress toward the goals of the Ending the HIV Epidemic (EHE) initiative \cite{cdc_ehe}. New acquisitions declined 34\% nationally between 2017 and 2021, yet disparities by race and region have not closed at the same pace. Black populations accounted for 37\% of new HIV diagnoses as of 2022, while comprising only 12\% of the U.S. population \cite{cdc_race_ethnicity}. The South carried the highest regional rate of new diagnoses in the country as of 2020, 12.4 per 100,000, nearly double the national average and far above the Midwest's rate of 6 per 100,000 \cite{cdc_hiv_by_region, hivgov_stats}. These are not incidental patterns. A growing body of public health literature identifies systemic and structural racism, operating through housing policy, healthcare access, education funding, and residential segregation, as a social-structural determinant of who bears the burden of new HIV diagnoses \cite{burton2023, braveman2022, bowleg2022, muno2024}.
+
+This problem matters to me personally, not just academically. I grew up in a semi-rural area where reaching a hospital in a medical emergency meant traveling at least eighteen minutes, including crossing a bridge, with no closer option. HIV is concentrated in exactly these kinds of low-income, geographically isolated areas. Studying how social determinants of health and residential segregation shape new HIV diagnoses is a way for me to use data science to better understand a pattern I lived before I had the tools to measure it.
+
+This project's design was also shaped by conversations with my instructor, Dr. Lubna Pinky, who suggested forecasting and time series analysis, along with GIS, as directions for the project. Those conversations are why this project includes the time-series, forecasting, and spatial-clustering extensions, not just the original study's regional analysis. I want this project to help identify, geographically, where HIV prevention resources are most needed.
+
+% ============================================================
+\section{Project Goals and Expected Outcomes}
+% ============================================================
+
+This project has four concrete aims. The first reproduces the original study's design; the remaining three extend it.
+
+\begin{enumerate}[leftmargin=1.4em]
+  \item Reproduce the association between SDOH, residential segregation, and new HIV diagnoses across the four major U.S. regions (North, South, West, Midwest), 2013 to 2023, using a region-stratified GEE model with a Poisson distribution and log link, following Garrett et al.'s approach \cite{garrett2026}.
+  \item Characterize the longitudinal trend in new HIV diagnosis rates through a formal time-series decomposition (trend, seasonal/periodic, and residual components) at both the regional and county level, with explicit attention to the 2019 EHE launch and the 2020 COVID-19 disruption and subsequent rebound that the original study identifies but does not formally model.
+  \item Forecast near-term (2024 to 2026) county- and regional-level new-diagnosis rates, to identify counties whose trajectories suggest a rising, rather than declining or stable, burden. This is a predictive layer the original, purely associational study does not attempt.
+  \item Cluster and map U.S. counties into empirically derived SDOH/segregation typologies using K-means clustering on standardized feature vectors (poverty, unemployment, uninsured rate, educational attainment, racial/ethnic composition, rurality, and segregation indices), visualized geographically to reveal spatial patterns of risk at a finer resolution than the original study's four census regions.
+\end{enumerate}
+
+\noindent Four outcomes are expected. The first is a replication, on independently reconstructed data, of the original study's central finding that a county's Black population share and residential segregation are positively associated with new HIV diagnoses across every U.S. region. A second outcome is a clear, quantified account of how much of the 2019 to 2023 period's trend is attributable to the pandemic-era disruption versus a true shift in underlying risk. Third, a short-range forecast could, in principle, support prioritization of counties for HIV prevention outreach. Finally, a county-typology map should make visible exactly the kind of rural, geographically isolated, high-structural-disadvantage communities that motivated this project in the first place, rather than averaging them into a single regional estimate.
+
+% ============================================================
+\section{Dataset Description}
+% ============================================================
+
+This project uses three linked, entirely public data sources, merged into a single county-year analytic panel. No IRB approval is required, consistent with the original study's data-use statement, since only publicly available, county-aggregated data are used \cite{garrett2026}.
+
+\subsection{Target (response) variable}
+The primary outcome is the county-year rate of new HIV diagnoses per 100,000 population (\texttt{NewDX\_Rate}), with the corresponding raw case count (\texttt{NewDX\_Cases}) retained as a secondary outcome, both drawn from AIDSVu \cite{aidsvu_resources, aidsvu_methods}. AIDSVu suppresses rates for counties where low case counts would otherwise risk re-identifying individuals; those suppressed county-years are treated as missing rather than as numeric zeros, matching the original study's handling \cite{garrett2026}.
+
+\subsection{Predictor (feature) variables}
+Predictors are drawn from the ACS 5-year estimates, chosen to mirror the original study's SDOH measure set, with one addition (Hispanic/Latino ethnicity share) reflecting this project's goal of representing the full range of a county's demographic composition rather than a single racial comparison.
+\begin{itemize}[leftmargin=1.4em]
+  \item Socioeconomic status includes percent of the county population below the federal poverty line, percent unemployed, percent without health insurance, and percent without a high school diploma.
+  \item Demographic composition includes percent White, percent Black, percent Asian, percent Hispanic/Latino, percent other race/ethnicity, and total county population.
+  \item Rurality is measured by the 2023 Rural-Urban Continuum Code (RUCC), the only time-invariant covariate in the design, sourced from the USDA Economic Research Service. This addition is in progress; see Section 5.
+  \item Residential segregation is measured by the Gini Index (income-based evenness), the Delta Index (racial concentration), and the Spatial Proximity Index (racial clustering), computed following Massey and Denton's (1988) framework \cite{massey1988}. This addition is also in progress; see Section 5.
+  \item Geography and time are captured by U.S. Census region (North, South, West, Midwest) \cite{census_regions} and survey year, 2013 to 2023.
+\end{itemize}
+
+\subsection{Data source}
+All data are public and were pulled directly from their original sources. These are AIDSVu (Emory University Rollins School of Public Health) for new-diagnosis counts and rates \cite{aidsvu_resources, aidsvu_methods, sullivan2020_jmir}, the U.S. Census Bureau's American Community Survey via the Census Data API for SDOH and demographic covariates \cite{census_acs}, and the USDA Economic Research Service for rurality \cite{usda_rucc}. The merged analytic panel contains 35,442 county-year rows spanning 3,222 counties and 11 years, 2013 to 2023, with a 99.7\% match rate between the AIDSVu and ACS sources. The 0.3\% of unmatched county-years is accounted for in Section 5.
+
+\subsection{Data summary}
+Table~\ref{tab:datasummary} summarizes the merged panel overall and by U.S. Census region, computed directly from the analytic file described above, in the same format as Table 1 of the study this project reproduces \cite{garrett2026}. The regional pattern shows higher poverty, uninsurance, Black population share, and new-diagnosis rate in the South, and lower values in the Midwest. This is consistent with the original study's own descriptive statistics, which is an encouraging sign that this independently reconstructed panel reflects the same underlying population.
+
+\begin{table}[h]
+\centering
+\caption{County-level summary of the analytic panel, 2013 to 2023, overall and by U.S. Census region (column means).}
+\label{tab:datasummary}
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Variable} & \textbf{Overall} & \textbf{North} & \textbf{South} & \textbf{West} & \textbf{Midwest} \\
+\midrule
+Counties, $n$ & 3{,}222 & 218 & 1{,}500 & 449 & 1{,}055 \\
+Poverty (\%) & 16.3 & 12.2 & 19.7 & 14.5 & 13.1 \\
+Unemployment (\%) & 6.6 & 6.2 & 7.8 & 6.7 & 5.1 \\
+Uninsured (\%) & 11.2 & 7.0 & 13.1 & 12.3 & 8.8 \\
+No HS diploma (\%) & 13.4 & 9.9 & 16.9 & 11.2 & 10.2 \\
+Black (\%) & 9.0 & 5.2 & 16.4 & 1.3 & 2.5 \\
+White (\%) & 81.5 & 86.5 & 74.6 & 80.8 & 90.7 \\
+Asian (\%) & 1.3 & 2.6 & 1.0 & 2.6 & 1.0 \\
+Hispanic/Latino (\%) & 11.5 & 6.7 & 15.2 & 17.3 & 4.6 \\
+New HIV diagnosis rate\footnotemark & 5.9 & 6.5 & 10.4 & 3.1 & 1.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\footnotetext{Rate of new HIV diagnoses per 100,000 population, county-year average, 2013 to 2023.}
+
+% ============================================================
+\section{Methodology}
+% ============================================================
+
+\subsection{Data preprocessing}
+AIDSVu and ACS county-level extracts were merged on FIPS code for every year from 2013 to 2023. Five concrete preprocessing issues were identified and resolved during this process, in the interest of full transparency about what counts as clean data here.
+
+\begin{enumerate}[leftmargin=1.4em]
+\item The raw AIDSVu county-name field contained embedded line breaks in a subset of rows, which silently corrupted row structure during an initial parse (misaligning roughly 1,045 of 35,442 rows). This was detected by auditing for implausible values in the \texttt{Year} field, and fixed by stripping embedded newline characters from every field before serialization.
+\item The ACS does not use a stable variable code for the same concept across survey vintages. For example, the code for unemployment rate differs between the 2013 and 2014 releases and the 2015 and later releases, and the race/ethnicity variable codes used from 2013 to 2015 differ from those used from 2017 onward. Hardcoding a single year's variable codes silently pulls the wrong (often zero-valued) column in other years. This was resolved by querying each year's own ACS variable-group metadata and matching on the variable's label text, for example Percent unemployed, rather than a fixed code, so that the correct column is selected in every year regardless of code renumbering.
+\item Of the 35,442 AIDSVu county-years, 99 (0.3\%) did not find an ACS match. All 99 were traced to genuine FIPS and geography changes rather than data errors, including Connecticut's 2022 transition from counties to planning regions, Alaska census-area boundary revisions, and the 2015 FIPS code rename of Oglala Lakota County, South Dakota (formerly Shannon County). These rows are documented and excluded rather than silently dropped or force-matched.
+\item The Census API encodes a small number of unavailable estimates with large negative placeholder codes, for example $-888{,}888{,}888$, rather than leaving the cell blank. One county-year, Rio Arriba County, NM, 2018, carried this sentinel in its poverty and unemployment fields. Left unfiltered, a single such value is large enough to distort a column mean by several orders of magnitude. Both cells were identified by scanning for implausible magnitudes and recoded as missing rather than included as numeric data.
+\item AIDSVu encodes the outcome variable itself the same way. Counties with low case counts, where reporting a precise rate would risk re-identifying individuals, are marked with negative placeholder codes ($-1$, $-4$, or $-9$) in both \texttt{NewDX\_Rate} and \texttt{NewDX\_Cases}, rather than left blank. These codes were present in 12,786 of 35,442 rows (36\%) and, left unfiltered, were being averaged in as literal negative diagnosis rates, which pulled every summary statistic on the outcome variable toward zero. All negative values in \texttt{NewDX\_Rate} and \texttt{NewDX\_Cases} were recoded as missing. This changed the overall mean new-diagnosis rate from an artificially low 3.4 to 5.9 per 100,000, a figure now much closer to the original study's own reported regional rates, which is a strong independent check that the correction is right rather than an arbitrary adjustment.
+\end{enumerate}
+
+\noindent The resulting analytic panel contains 35,442 county-year rows across 3,222 counties and 19 variables, with a 99.7\% cross-source match rate.
+
+\subsection{Feature Selection}
+Feature selection mirrors the original study's SDOH measure set (poverty, unemployment, uninsured rate, educational attainment, race/ethnicity composition, and nonmetropolitan status). These are the measures with the most direct documented association with HIV-related health disparities in the existing literature \cite{garrett2026}. One addition was made relative to the original design. Hispanic/Latino ethnicity share is retained as its own feature, alongside White, Black, Asian, and other race shares, so that the full demographic composition of a county is visible rather than collapsed into a single racial comparison. Residential segregation indices (Gini, Delta, Spatial Proximity) will be computed at the county level using the open-source \texttt{segregation} package from the PySAL (Python Spatial Analysis Library) ecosystem, which directly implements the Massey and Denton (1988) measures used in the original study \cite{massey1988}. For the primary segregation interaction term, this project follows the original study's focus on the Black-White dimension of segregation, mirroring its Black $\times$ Delta interaction, while retaining all racial/ethnic shares as independent, visible features in the exploratory and clustering analyses, rather than narrowing the broader demographic picture down to only Black and White populations.
+
+\subsection{Machine Learning Models Used}
+Four modeling components are used, one reproducing the original study and three constituting this project's extension.
+
+\begin{enumerate}[leftmargin=1.4em]
+\item A region-stratified GEE model, the reproduction, uses a Poisson distribution and log link, fit separately within each of the four U.S. regions, predicting new-diagnosis counts from the SDOH and segregation covariates above, with Black $\times$ Delta and Poverty $\times$ Gini interaction terms tested, following the original study's specification \cite{garrett2026}. Results are reported as incidence rate ratios (IRRs) with 95\% confidence intervals.
+\item A time-series decomposition is the first extension. It breaks regional and county-level new-diagnosis rate series, 2013 to 2023, into trend, periodic, and residual components, using a method such as STL decomposition. This formally quantifies the magnitude of the 2020 COVID-19-era dip and subsequent rebound relative to the underlying multi-year trend, rather than relying on visual inspection of a single trend line.
+\item A forecasting model, the second extension, projects county- and regional-level new-diagnosis rates forward, 2024 to 2026, using a time-series forecasting approach such as ARIMA or exponential smoothing, to identify counties whose projected trajectory diverges from a stable or declining pattern.
+\item A K-means spatial clustering model, the third extension, groups county-level feature vectors, standardized SDOH, demographic, rurality, and segregation measures. K-means was selected over alternatives such as hierarchical clustering and DBSCAN for its interpretability at county scale. It derives a small number of empirically grounded county typologies, for example high-poverty, high-segregation, rural counties versus low-disadvantage, urban counties, which are then mapped geographically in Esri ArcGIS Pro, with QGIS as a backup tool, to visualize spatial clustering of risk profiles at a resolution finer than the original study's four census regions.
+\end{enumerate}
+
+\subsection{Model Evaluation Strategy}
+The four components above call for different validation strategies, matched to what each is actually trying to do.
+
+\begin{itemize}[leftmargin=1.4em]
+\item The GEE reproduction is an inferential, population-level model, not a predictive one. It is fit on the complete 2013 to 2023 panel within each region, consistent with the original study's design, and no train/test split applies.
+\item The forecasting component uses a temporal holdout. The model is trained on 2013 to 2021 data and validated and tested against the observed 2022 and 2023 values, with forecast accuracy assessed using mean absolute error (MAE) and root mean squared error (RMSE) against a naive persistence baseline.
+\item The K-means clustering component selects the number of clusters, $k$, using the elbow method and silhouette score, and checks cluster assignment stability by re-running the algorithm with multiple random initializations and seeds.
+\end{itemize}
+
+\subsection{Current status}
+As of this report, the AIDSVu-ACS panel described in Section 4 is fully merged and cleaned, including poverty, unemployment, insurance, education, and full race/ethnicity composition (including Hispanic/Latino share) for all 3,222 counties across 2013 to 2023. The remaining methodology components in progress are the segregation indices (Gini, Delta, Spatial Proximity, via the PySAL \texttt{segregation} package) and the 2023 RUCC rurality join. Both have a concrete, already-identified implementation path and are the next step before the regional GEE reproduction and the clustering extension are finalized.
+
+% ============================================================
+\section{Related Work / Background}
+% ============================================================
+
+\subsection{Structural racism and residential segregation as determinants of the HIV epidemic}
+Health disparities persist along the entire HIV care continuum. A growing literature identifies structural and systemic racism as a root social-structural determinant of who is affected \cite{burton2023, braveman2022, bowleg2022}. Braveman et al.\ (2022) describe systemic and structural racism as forms of racism embedded throughout systems, laws, formal and informal policies, and long-entrenched practices and beliefs \cite{braveman2022}. These forces produce and sustain unfair treatment and worse health outcomes. Residential segregation is one of the clearest and most durable expressions of that structural racism. Redlining, restrictive housing covenants, zoning, and discriminatory mortgage lending built it into law and policy, and it persists today even where those explicit legal mechanisms have been formally repealed \cite{braveman2022, steil2023}. Very few empirical studies have operationalized structural racism quantitatively at all. That is the finding of a 2024 scoping review by Muno et al., which identified the gap as a major limit on the field's ability to design structural interventions \cite{muno2024}. The study this project reproduces was built explicitly to help close it.
+
+Massey and Denton's (1988) foundational framework identifies three distinct, well-established dimensions of residential segregation \cite{massey1988}. Evenness describes how uniformly groups are distributed across a metropolitan area and is commonly operationalized via the Gini Index. Concentration is the proportion of physical space occupied by a minority group, operationalized via the Delta Index. Clustering is the degree to which same-group residents are geographically adjacent to one another, operationalized via the Spatial Proximity Index. Segregation along these dimensions has been linked to differential access to the very SDOH that shape health outcomes, including education, income, housing quality, and healthcare access. The public health literature treats it not as a historical artifact but as an ongoing structural determinant of health \cite{steil2023, drexel_resource}. West et al.\ (2024) went further, tracing a direct statistical line from the presence of racially restrictive housing covenants, many decades old, to present-day health and wellbeing outcomes in the same neighborhoods. Their finding underscores how durable these structural effects are \cite{west2024}.
+
+\subsection{Prior quantitative work connecting segregation to HIV outcomes}
+Despite this theoretical grounding, quantitative work explicitly connecting residential segregation to new HIV diagnoses remains sparse. Ibragimov et al.\ (2018) offer the clearest prior example. They found that a Black isolation index, a measure of residential segregation, was associated with newly diagnosed HIV cases among Black heterosexual populations across U.S. metropolitan areas between 2008 and 2015 \cite{ibragimov2018}. That study was limited, though, to a single demographic subgroup, Black heterosexuals, within metropolitan areas only, and relied on a single segregation measure. Garrett et al.\ (2026) broadens that scope considerably. By the authors' own account, it is among the first studies to examine the association between residential segregation, across all three Massey-Denton dimensions, and new HIV diagnoses longitudinally, across every U.S. county and all four census regions, rather than a single demographic group within metro areas \cite{garrett2026}.
+
+\subsection{Design and Findings Reproduced from Garrett et al. (2026)}
+The study this project reproduces merged AIDSVu new-diagnosis data with ACS SDOH data on FIPS code, for 3,051 of 3,144 U.S. counties (97.04\%), 2013 to 2023, and fit a region-stratified GEE model with a Poisson distribution and log link \cite{garrett2026}. Three of its findings motivate and justify this project's design directly. A county's Black population share was positively associated with new HIV diagnoses in every region, with an IRR ranging from 1.16 in the North to 2.78 in the West. That was the single most consistent finding in the paper. Residential segregation, across all three dimensions, was also positively associated with new HIV diagnoses in all regions. A Black $\times$ Delta interaction term added a nuance to that picture, showing that the effect of racial concentration was somewhat less pronounced in counties with a higher Black population share (South: 0.91; North: 0.89; Midwest: 0.81), something a simple main-effects model would have missed entirely. Finally, new-diagnosis rates dipped in every region between 2019 and 2020 and have since rebounded to, or above, pre-pandemic levels. The authors attribute this to COVID-19-era service interruptions rather than a true reduction in incidence. They explicitly call for continued monitoring of new-diagnosis trends going forward, to prepare for future periods of crisis and infectious disease pandemics \cite{garrett2026}.
+
+\subsection{Why this project's extensions are appropriate}
+Each of this project's three extensions responds directly to a limitation or an explicit call for future work in Garrett et al.\ (2026), rather than being an arbitrary addition.
+
+\begin{enumerate}[leftmargin=1.4em]
+\item Time-series decomposition directly answers the original study's own call for continued monitoring of the COVID-19-era disruption. The original paper describes the dip between 2019 and 2020 and the subsequent rebound with a single annotated trend figure. A formal decomposition goes further. It quantifies how much of that pattern is attributable to the pandemic-era shock versus the underlying multi-year trend, which matters for telling a temporary service disruption apart from a genuine change in epidemic trajectory.
+\item Forecasting fills a gap the original, purely associational study does not attempt. Garrett et al.'s GEE model establishes which factors are associated with new HIV diagnoses, but it makes no claim about where rates are headed. A forecasting layer turns that inferential finding into a forward-looking tool. In principle, it could help prioritize where prevention resources go next, consistent with the EHE initiative's own stated goal of expanding prevention and care efforts where they are needed most \cite{cdc_ehe}.
+\item County-level K-means clustering and spatial mapping responds to a limitation the original study states itself. Its four-region resolution is sufficient to capture broad patterns that extend across state lines, but it necessarily averages over substantial within-region heterogeneity \cite{garrett2026}. A four-region average cannot tell a rural, geographically isolated, high-poverty county apart from an urban county in the same census region, even though their actual HIV risk profile, healthcare access, and appropriate intervention may look nothing alike. This is not a hypothetical concern. Insurance-coverage gaps tied to Medicaid non-expansion are themselves geographically concentrated. Nearly 60,000 uninsured, low-income people with HIV/AIDS are estimated to live in non-expansion states, disproportionately in the rural South \cite{snider2014, kates2021}. County-level clustering and mapping is the right tool for making that kind of geographically concentrated disadvantage visible instead of averaging it away. It is also, in a more personal sense, the gap between a regional statistic and the lived experience of growing up in a specific underserved, geographically isolated place.
+\end{enumerate}
+
+The forecasting extension is further grounded in a growing literature on COVID-19's disruption of HIV care infrastructure. Shiau et al.\ (2020) frame the pandemic's effect on people living with HIV as a syndemic, two intersecting epidemics whose combined burden exceeds either alone, rather than two independent events \cite{shiau2020}. Qiao et al.\ (2021) documented direct, measurable disparities in HIV service interruption during the COVID-19 outbreak in South Carolina, a southern state that carries a disproportionate share of the national HIV burden \cite{qiao2021}. Together, this literature argues against treating 2020 and 2021 as ordinary trend noise to be smoothed over. It should instead be treated as a structural break that a forecasting model accounts for explicitly, which is exactly what this project's time-series and forecasting components are designed to do. None of these three extensions is an arbitrary addition. Each closes a specific, named gap in the very study this project reproduces, using the same public data infrastructure rather than introducing new, harder-to-validate data sources.
+
+% ============================================================
+\section*{Acknowledgments}
+% ============================================================
+I thank Dr. Lubna J. Pinky, PhD, of the School of Applied Computational Sciences, Meharry Medical College, for her guidance throughout the MSBD 503 course project, and for suggesting the time-series, forecasting, and GIS directions this project builds on.
+
+% ============================================================
+\begingroup
+\small
+\begin{thebibliography}{99}
+
+\bibitem{garrett2026} Garrett C, Li Z, Xia H, Li X, Qiao S. County-level new HIV diagnoses, social determinants of health, and residential segregation by U.S. region 2013 to 2023: a longitudinal analysis. \textit{AIDS Behav}. 2026. \url{https://doi.org/10.1007/s10461-026-05166-7}
+
+\bibitem{cdc_ehe} Centers for Disease Control and Prevention. Ending the HIV Epidemic in the U.S. (EHE). 2023. \url{https://www.cdc.gov/endhiv/index.html}
+
+\bibitem{hivgov_stats} HIV.gov. HIV basics: overview, data and trends, statistics. 2023. \url{https://www.hiv.gov/hiv-basics/overview/data-and-trends/statistics}
+
+\bibitem{cdc_hiv_by_region} Centers for Disease Control and Prevention. HIV in the United States by region: HIV diagnoses. 2023. \url{https://www.cdc.gov/hiv/statistics/overview/diagnoses.html}
+
+\bibitem{cdc_race_ethnicity} Centers for Disease Control and Prevention. Fast facts: HIV in the US by race and ethnicity. 2026. \url{https://www.cdc.gov/hiv/data-research/facts-stats/race-ethnicity.html}
+
+\bibitem{burton2023} Burton KL, Ritchwood TD, Metzger IW. Structural racism and racial trauma among African Americans at elevated risk for HIV infection. \textit{Am J Public Health}. 2023;113(S2):S102--6. \url{https://doi.org/10.2105/AJPH.2023.307223}
+
+\bibitem{braveman2022} Braveman PA, Arkin E, Proctor D, Kauh T, Holm N. Systemic and structural racism: definitions, examples, health damages, and approaches to dismantling. \textit{Health Aff}. 2022;41(2):171--8. \url{https://doi.org/10.1377/hlthaff.2021.01394}
+
+\bibitem{bowleg2022} Bowleg L, Malekzadeh AN, Mbaba M, Boone CA. Ending the HIV epidemic for all, not just some: structural racism as a fundamental but overlooked social-structural determinant of the US HIV epidemic. \textit{Curr Opin HIV AIDS}. 2022;17(2):40--5. \url{https://doi.org/10.1097/COH.0000000000000724}
+
+\bibitem{muno2024} Muno BA, Islam JY, Schwartz R, Wallace S, Camacho-Rivera M, Patel RC. Structural racism conceptualization and operationalization for research for the U.S. HIV epidemic: findings from a scoping review and implications for advancing research for structural interventions. \textit{AIDS Behav}. 2024;28(1):149--65. \url{https://doi.org/10.1007/s10461-024-04417-9}
+
+\bibitem{steil2023} Steil J, Arcaya M. Residential segregation and health: history, harms, and next steps. \textit{Health Aff}. 2023. \url{https://doi.org/10.1377/hpb20230321.580719}
+
+\bibitem{drexel_resource} Drexel University Urban Health Collaborative. Resource sheet: residential segregation measures -- location, location, location. 2024. \url{https://drexel.edu/~/media/Files/uhc/News/Resource\%20sheet\%20Residential\%20Segregation.ashx?la=en}
+
+\bibitem{massey1988} Massey DS, Denton NA. The dimensions of residential segregation. \textit{Soc Forces}. 1988;67(2):281--315. \url{https://doi.org/10.1093/sf/67.2.281}
+
+\bibitem{ibragimov2018} Ibragimov U, et al. Relationship of racial residential segregation to newly diagnosed cases of HIV among Black heterosexuals in US metropolitan areas, 2008--2015. \textit{J Urban Health}. 2018;96(6):856. \url{https://doi.org/10.1007/s11524-018-0303-1}
+
+\bibitem{aidsvu_resources} AIDSVu. Tools \& resources: datasets. 2026. \url{https://aidsvu.org/resources/}
+
+\bibitem{sullivan2020_jmir} Sullivan P, et al. A data visualization and dissemination resource to support HIV prevention and care at the local level: analysis and uses of AIDSVu public data resource. \textit{JMIR}. 2020. \url{https://www.jmir.org/2020/10/e23173/}
+
+\bibitem{aidsvu_methods} AIDSVu. Data methods -- national, regional, state, county-level. 2026. \url{https://aidsvu.org/data-methods/data-methods-statecounty/}
+
+\bibitem{census_acs} United States Census Bureau. American Community Survey (ACS). 2023. \url{https://www.census.gov/programs-surveys/acs}
+
+\bibitem{usda_rucc} United States Department of Agriculture Economic Research Service. Rural-Urban Continuum Codes. 2026. \url{https://www.ers.usda.gov/data-products/rural-urban-continuum-codes}
+
+\bibitem{census_regions} United States Census Bureau. Census regions and divisions of the United States. \url{https://www2.census.gov/geo/pdfs/maps-data/maps/reference/us_regdiv.pdf}
+
+\bibitem{census_segregation_appendix} United States Census Bureau. Housing patterns: appendix B -- measures of residential segregation. 2024. \url{https://www.census.gov/topics/housing/housing-patterns/guidance/appendix-b.html}
+
+\bibitem{sullivan2021_lancet} Sullivan PS, et al. Epidemiology of HIV in the USA: epidemic burden, inequities, contexts, and responses. \textit{Lancet}. 2021;397(10279):1095--106. \url{https://doi.org/10.1016/S0140-6736(21)00395-0}
+
+\bibitem{snider2014} Snider JT, et al. Nearly 60,000 uninsured and low-income people with HIV/AIDS live in states that are not expanding Medicaid. \textit{Health Aff}. 2014;33(3):386--93. \url{https://doi.org/10.1377/hlthaff.2013.1453}
+
+\bibitem{kates2021} Kates J, et al. Insurance coverage and financing landscape for HIV treatment and prevention in the USA. \textit{Lancet}. 2021;397(10279):1127--38. \url{https://doi.org/10.1016/S0140-6736(21)00397-4}
+
+\bibitem{west2024} West K, Allen EM, Neiwert R, LaPlante A, Durben AN, Delgado-Palma V. Lasting legacy: the enduring relationship between racially restrictive housing covenants and health and wellbeing. \textit{J Urban Health}. 2024;101(5):1026--36. \url{https://doi.org/10.1007/s11524-024-00901-8}
+
+\bibitem{shiau2020} Shiau S, Krause KD, Valera P, Swaminathan S, Halkitis PN. The burden of COVID-19 in people living with HIV: a syndemic perspective. \textit{AIDS Behav}. 2020;24(8):2244--9. \url{https://doi.org/10.1007/s10461-020-02871-9}
+
+\bibitem{qiao2021} Qiao S, et al. Disparity in HIV service interruption in the outbreak of COVID-19 in South Carolina. \textit{AIDS Behav}. 2021;25(1):49--57. \url{https://doi.org/10.1007/s10461-020-03013-x}
+
+\end{thebibliography}
+\endgroup
+
+\end{document}
